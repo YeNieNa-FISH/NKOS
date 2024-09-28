@@ -21,7 +21,6 @@ int kern_init(void) {
 
     const char *message = "(THU.CST) os is loading ...\n";
     cprintf("%s\n\n", message);
-
     print_kerninfo();
 
     // grade_backtrace();
@@ -33,6 +32,11 @@ int kern_init(void) {
 
     intr_enable();  // enable irq interrupt
     
+    asm("mret");
+    asm("ebreak");
+    asm("mret");
+
+
     while (1)
         ;
 }
