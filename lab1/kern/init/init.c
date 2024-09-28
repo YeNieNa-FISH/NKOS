@@ -32,10 +32,10 @@ int kern_init(void) {
 
     intr_enable();  // enable irq interrupt
     
-    asm("mret");
-    asm("ebreak");
-    asm("mret");
 
+    //这两行代码是用来输出错误信息的，调试时把注释去掉就行
+    //asm("ebreak");
+    //asm("mret");
 
     while (1)
         ;
