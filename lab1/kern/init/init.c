@@ -34,8 +34,8 @@ int kern_init(void) {
     
 
     //这两行代码是用来输出错误信息的，调试时把注释去掉就行
-    //asm("ebreak");
-    //asm("mret");
+    asm("ebreak");
+    asm("mret");
 
     while (1)
         ;

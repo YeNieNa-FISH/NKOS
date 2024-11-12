@@ -4,7 +4,7 @@
 #include <assert.h>
 #include <atomic.h>
 #include <defs.h>
-#include <memlayout.h>
+#include "memlayout.h"
 #include <mmu.h>
 #include <riscv.h>
 
