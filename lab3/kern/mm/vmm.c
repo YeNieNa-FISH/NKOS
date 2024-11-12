@@ -346,6 +346,9 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
      * THEN
      *    continue process
      */
+
+
+
     uint32_t perm = PTE_U;
     if (vma->vm_flags & VM_WRITE) {
         perm |= (PTE_R | PTE_W);
@@ -406,7 +409,13 @@ do_pgfault(struct mm_struct *mm, uint_t error_code, uintptr_t addr) {
             //map of phy addr <--->
             //logical addr
             //(3) make the page swappable.
-            page->pra_vaddr = addr;
+            if ((ret = swap_in(mm, addr, &page)) != 0) {
+                cprintf("swap_in in do_pgfault failed\n");
+                goto failed;
+            }   
+            page_insert(mm->pgdir, page, addr, perm);//建立虚拟地址和物理地址之间的对应关系，perm设置物理页权限，为了保证和它对应的虚拟页权限一致
+            swap_map_swappable(mm, addr, page, 1);//将此页面设置为可交换的 ,也添加到算法所维护的次序队列
+	        page->pra_vaddr = addr;		//设置页对应的虚拟地址
         } else {
             cprintf("no swap_init_ok but ptep is %x, failed\n", *ptep);
             goto failed;

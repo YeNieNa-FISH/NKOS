@@ -170,10 +170,10 @@ struct Page * check_rp[CHECK_VALID_PHY_PAGE_NUM];
 pte_t * check_ptep[CHECK_VALID_PHY_PAGE_NUM];
 unsigned int check_swap_addr[CHECK_VALID_VIR_PAGE_NUM];
 
-extern free_area_t free_area;
+extern free_area_t free_area_bf;
 
-#define free_list (free_area.free_list)
-#define nr_free (free_area.nr_free)
+#define free_list (free_area_bf.free_list)
+#define nr_free (free_area_bf.nr_free)
 
 static void
 check_swap(void)
