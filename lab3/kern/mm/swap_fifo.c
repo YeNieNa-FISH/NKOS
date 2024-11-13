@@ -61,12 +61,12 @@ _fifo_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int
 static int
 _fifo_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick)
 {
-     list_entry_t *head=(list_entry_t*) mm->sm_priv;
-         assert(head != NULL);
-     assert(in_tick==0);
-     /* Select the victim */
-     //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
-     //(2)  set the addr of addr of this page to ptr_page
+    list_entry_t *head=(list_entry_t*) mm->sm_priv;
+    assert(head != NULL);
+    assert(in_tick==0);
+    /* Select the victim */
+    //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
+    //(2)  set the addr of addr of this page to ptr_page
     list_entry_t* entry = list_prev(head);
     if (entry != head) {
         list_del(entry);
