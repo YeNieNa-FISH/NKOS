@@ -40,7 +40,58 @@ FIFO页面替换的过程如下：
 
 
 #### 练习2：深入理解不同分页模式的工作原理（思考题）
-
+get_pte()函数（位于`kern/mm/pmm.c`）用于在页表中查找或创建页表项，从而实现对指定线性地址对应的物理页的访问和映射操作。这在操作系统中的分页机制下，是实现虚拟内存与物理内存之间映射关系非常重要的内容。
+ - get_pte()函数中有两段形式类似的代码， 结合sv32，sv39，sv48的异同，解释这两段代码为什么如此相像。
+ - 目前get_pte()函数将页表项的查找和页表项的分配合并在一个函数里，你认为这种写法好吗？有没有必要把两个功能拆开？
+ ```c
+pte_t *get_pte(pde_t *pgdir, uintptr_t la, bool create) {
+    /*
+     *   PDX(la) = the index of page directory entry of VIRTUAL ADDRESS la.
+     *   KADDR(pa) : takes a physical address and returns the corresponding
+     * kernel virtual address.
+     *   set_page_ref(page,1) : means the page be referenced by one time
+     *   page2pa(page): get the physical address of memory which this (struct
+     * Page *) page  manages
+     *   struct Page * alloc_page() : allocation a page
+     *   memset(void *s, char c, size_t n) : sets the first n bytes of the
+     * memory area pointed by s
+     *                                       to the specified value c.
+     * DEFINEs:
+     *   PTE_P           0x001                   // page table/directory entry
+     * flags bit : Present
+     *   PTE_W           0x002                   // page table/directory entry
+     * flags bit : Writeable
+     *   PTE_U           0x004                   // page table/directory entry
+     * flags bit : User can access
+     */
+    pde_t *pdep1 = &pgdir[PDX1(la)];
+    if (!(*pdep1 & PTE_V)) {
+        struct Page *page;
+        if (!create || (page = alloc_page()) == NULL) {
+            return NULL;
+        }
+        set_page_ref(page, 1);
+        uintptr_t pa = page2pa(page);
+        memset(KADDR(pa), 0, PGSIZE);
+        *pdep1 = pte_create(page2ppn(page), PTE_U | PTE_V);
+    }
+    pde_t *pdep0 = &((pde_t *)KADDR(PDE_ADDR(*pdep1)))[PDX0(la)];
+//    pde_t *pdep0 = &((pde_t *)(PDE_ADDR(*pdep1)))[PDX0(la)];
+    if (!(*pdep0 & PTE_V)) {
+    	struct Page *page;
+    	if (!create || (page = alloc_page()) == NULL) {
+    		return NULL;
+    	}
+    	set_page_ref(page, 1);
+    	uintptr_t pa = page2pa(page);
+    	memset(KADDR(pa), 0, PGSIZE);
+ //   	memset(pa, 0, PGSIZE);
+    	*pdep0 = pte_create(page2ppn(page), PTE_U | PTE_V);
+    }
+    return &((pte_t *)KADDR(PDE_ADDR(*pdep0)))[PTX(la)];
+}
+```
+回答：这些代码相似是因为它们是相同的逻辑，通过检查PTE_V标志位判断页表项，目录是否存在，如果不存在且允许创建，则分配一个新的页面，并设置相关的页表项。（对于SV32、SV39和SV48的页表层级和索引计算方式不同，但页表管理逻辑相同。多级每级管理是类似的。）将页表项的查找和分配合并在一个函数中简化了调用过程，易于理解。可以分开，分开后区分更加明确，灵活，错误处理也简便。
 
 #### 练习3：给未被映射的地址映射上物理页（需要编程）
 
@@ -103,6 +154,81 @@ pages数组与页表项有着直接的对应关系。在pages数组中，索引�
 而与页目录项的关系是间接的，PDE指向的页表是由一个或多个物理页帧组成的，而这些物理页帧在pages数组中有对应的Page结构体。页目录项与page数组在层级上是等价的，但两者没有直接关系。
 
 #### 练习4：补充完成Clock页替换算法（需要编程）
+通过之前的练习，相信大家对FIFO的页面替换算法有了更深入的了解，现在请在我们给出的框架上，填写代码，实现 Clock页替换算法（mm/swap_clock.c）。
+请在实验报告中简要说明你的设计实现过程。请回答如下问题：
+ - 比较Clock页替换算法和FIFO算法的不同。
+ 和fifo相同的初始化
+```
+clock_init_mm(struct mm_struct *mm)
+{     
+     /*LAB3 EXERCISE 4: YOUR CODE*/ 
+     // 初始化pra_list_head为空链表
+     // 初始化当前指针curr_ptr指向pra_list_head，表示当前页面替换位置为链表头
+     // 将mm的私有成员指针指向pra_list_head，用于后续的页面替换算法操作
+     list_init(&pra_list_head);
+     curr_ptr = &pra_list_head;
+     mm->sm_priv = &pra_list_head;
+     cprintf(" curr_ptr %x in clock_init_mm\n",curr_ptr);
+     return 0;
+}
+```
+
+```
+clock_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, int swap_in)
+{
+    list_entry_t *entry=&(page->pra_page_link);
+ 
+    assert(entry != NULL && curr_ptr != NULL);
+    //record the page access situlation
+    /*LAB3 EXERCISE 4: YOUR CODE*/ 
+    // link the most recent arrival page at the back of the pra_list_head qeueue.
+    // 将页面page插入到页面链表pra_list_head的末尾
+    // 将页面的visited标志置为1，表示该页面已被访问
+    list_add(curr_ptr, entry);
+    page->visited=1;
+
+    return 0;
+}
+```
+```
+_clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tick)
+{
+     list_entry_t *head=(list_entry_t*) mm->sm_priv;
+         assert(head != NULL);
+     assert(in_tick==0);
+     /* Select the victim */
+     //(1)  unlink the  earliest arrival page in front of pra_list_head qeueue
+     //(2)  set the addr of addr of this page to ptr_page
+     list_entry_t *p = head;
+    while (1) {
+        /*LAB3 EXERCISE 4: YOUR CODE*/ 
+        // 编写代码
+        // 遍历页面链表pra_list_head，查找最早未被访问的页面
+        // 获取当前页面对应的Page结构指针
+        // 如果当前页面未被访问，则将该页面从页面链表中删除，并将该页面指针赋值给ptr_page作为换出页面
+        // 如果当前页面已被访问，则将visited标志置为0，表示该页面已被重新访问
+        p=list_prev(p);
+        if (p == head) {
+             p = list_prev(p);
+         }
+         struct Page *ptr = le2page(p, pra_page_link);
+         pte_t *pte = get_pte(mm -> pgdir, ptr -> pra_vaddr, 0);
+         //获取页表项
+         if (ptr->visited== 1) {
+             ptr->visited=0;
+         } 
+         else 
+         {
+             *ptr_page = ptr;
+             list_del(p);
+             break;
+         }
+         
+    }
+    return 0;
+}
+```
+回答：FIFO替换最久的页，可能替换掉常用的，clock淘汰掉了访问位为0的，可以减少不必要的页的替换
 
 
 #### 练习5：阅读代码和实现手册，理解页表映射方式相关知识（思考题）
