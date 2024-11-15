@@ -40,7 +40,7 @@ _clock_init_mm(struct mm_struct *mm)
      list_init(&pra_list_head);
      curr_ptr = &pra_list_head;
      mm->sm_priv = &pra_list_head;
-     cprintf(" curr_ptr %x in clock_init_mm\n",curr_ptr);
+     //cprintf(" curr_ptr %x in clock_init_mm\n",curr_ptr);
      return 0;
 }
 /*
@@ -59,7 +59,7 @@ _clock_map_swappable(struct mm_struct *mm, uintptr_t addr, struct Page *page, in
     // 将页面的visited标志置为1，表示该页面已被访问
     list_add(curr_ptr, entry);
     page->visited=1;
-
+    //cprintf(" curr_ptr %x \n",curr_ptr);
     return 0;
 }
 /*
@@ -97,6 +97,7 @@ _clock_swap_out_victim(struct mm_struct *mm, struct Page ** ptr_page, int in_tic
          {
              *ptr_page = ptr;
              list_del(p);
+             cprintf(" curr_ptr 0xffffffff%x \n",p);
              break;
          }
          
