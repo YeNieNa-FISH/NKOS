@@ -17,7 +17,7 @@ void cons_putc(int c) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        sbi_console_putchar((unsigned char)c);
+        sbi_console_putchar((unsigned char)c);// 确保在字符被发送到控制台的过程中，不会发生中断
     }
     local_intr_restore(intr_flag);
 }
@@ -31,7 +31,7 @@ int cons_getc(void) {
     bool intr_flag;
     local_intr_save(intr_flag);
     {
-        c = sbi_console_getchar();
+        c = sbi_console_getchar();// 读取操作需要一次性完成
     }
     local_intr_restore(intr_flag);
     return c;
