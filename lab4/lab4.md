@@ -201,21 +201,27 @@ get_pid(void) {
 #### 练习3：编写proc_run 函数（需要编码）
 proc_run用于将指定的进程切换到CPU上运行。它的大致执行步骤包括：
 
- - 检查要切换的进程是否与当前正在运行的进程相同，如果相同则不需要切换。
- - 禁用中断。你可以使用/kern/sync/sync.h中定义好的宏local_intr_save(x)和local_intr_restore(x)来实现关、开中断。
- - 切换当前进程为要运行的进程。
- - 切换页表，以便使用新进程的地址空间。/libs/riscv.h中提供了lcr3(unsigned int cr3)函数，可实现修改CR3寄存器值的功能。
- - 实现上下文切换。/kern/process中已经预先编写好了switch.S，其中定义了switch_to()函数。可实现两个进程的context切换。
- - 允许中断。
-
-请回答如下问题：
-
- - 在本实验的执行过程中，创建且运行了几个内核线程？
-
-完成代码编写后，编译并运行代码：make qemu
-
-如果可以得到如 附录A所示的显示内容（仅供参考，不是标准答案输出），则基本正确。
-
+- 检查要切换的进程是否与当前正在运行的进程相同，如果相同则不需要切换。
+- 禁用中断。你可以使用/kern/sync/sync.h中定义好的宏local_intr_save(x)和local_intr_restore(x)来实现关、开中断。
+- 切换当前进程为要运行的进程。
+- 切换页表，以便使用新进程的地址空间。/libs/riscv.h中提供了lcr3(unsigned int cr3)函数，可实现修改CR3寄存器值的功能。
+- 实现上下文切换。/kern/process中已经预先编写好了switch.S，其中定义了switch_to()函数。可实现两个进程的context切换。
+- 允许中断。
+请回答如下问题：在本实验的执行过程中，创建且运行了几个内核线程？
+回答：创建了idleproc内核线程和initproc内核线程。第一个线程是空闲时运行的，一有其它线程就换出，initproc通过调用kernel_thread函数创建了。本实验，该子内核线程的工作就是输出一些字符串。但在后续的实验中，i用来创建特定的其他内核。
+```c
+if (proc != current) {
+    bool intr_flag; // 定义中断变量，用于保存和恢复中断状态
+    struct proc_struct *prev = current;
+    current=proc;进程的切换
+    local_intr_save(intr_flag); // 屏蔽中断，并保存当前的中断状态
+    {
+        lcr3(next->cr3); // 修改页表
+        switch_to(&(prev->context), &(current>context)); // 上下文切换，保存当前进程的上下文，并加载新进程的上下文
+    }
+    local_intr_restore(intr_flag); // 恢复之前保存的中断状态，允许中断
+}
+```
 
 #### 扩展练习 Challenge：
  - 说明语句```local_intr_save(intr_flag);....local_intr_restore(intr_flag);``` 是如何实现开关中断的？
