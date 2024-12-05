@@ -103,6 +103,101 @@ int kernel_thread(int (*fn)(void *), void *arg, uint32_t clone_flags) {
 
  - 请说明ucore是否做到给每个新fork的线程一个唯一的id？请说明你的分析和理由。
 
+##### 2.1 设计过程
+根据注释，do_fork函数分为如下7步：
+
+1.调用alloc_proc
+```
+if ((proc = alloc_proc()) == NULL) {
+        goto fork_out;
+    }
+    proc->parent = current;
+```
+调用`alloc_proc()`函数来分配内存块，如果分配失败，则立即返回并进行相应处理。
+2.为进程分配一个内核栈
+```
+if (setup_kstack(proc)) {
+        goto bad_fork_cleanup_proc;
+    }
+```
+调用setup_kstack()函数为进程分配一个内核栈。
+3.复制原进程的内存管理信息到新进程
+```
+if(copy_mm(clone_flags, proc)){
+        goto bad_fork_cleanup_kstack;
+    }
+```
+调用copy_mm()函数，复制父进程的内存信息到子进程。
+4.复制原进程上下文到新进程
+```
+copy_thread(proc, stack, tf);
+```
+调用copy_thread()函数以复制父进程的中断帧和上下文信息。
+5. 将新进程添加到进程列表
+```
+bool intr_flag;
+    local_intr_save(intr_flag);//屏蔽中断，intr_flag置为1
+    {
+        proc->pid = get_pid();//获取当前进程PID
+        hash_proc(proc); //建立hash映射
+        list_add(&proc_list, &(proc->list_link));//加入进程链表
+        nr_process ++;//进程数加一
+    }
+    local_intr_restore(intr_flag);//恢复中断
+```
+调用hash_proc()函数将新进程的PCB插入哈希进程控制链表，接着通过list_add()函数将PCB插入进程控制链表，并将总进程数加一。在将PCB添加到进程链表的过程中，使用local_intr_save()和local_intr_restore()函数来屏蔽和恢复中断，以确保添加进程操作不会被中断打断。
+6.唤醒新进程
+```
+wakeup_proc(proc);
+```
+调用wakeup_proc()函数来把当前进程的state设置为PROC_RUNNABLE。
+7.返回新进程号
+```
+ret = proc->pid;
+```
+
+##### 2.2请说明 ucore 是否做到给每个新 fork 的线程一个唯一的 id？请说明你的分析和理由。
+
+我们可以查看实验中获取进程id的函数：get_pid(void)
+```
+static int
+get_pid(void) {
+    static_assert(MAX_PID > MAX_PROCESS);
+    struct proc_struct *proc;
+    list_entry_t *list = &proc_list, *le;
+    static int next_safe = MAX_PID, last_pid = MAX_PID;
+    if (++ last_pid >= MAX_PID) {
+        last_pid = 1;
+        goto inside;
+    }
+    if (last_pid >= next_safe) {
+    inside:
+        next_safe = MAX_PID;
+    repeat:
+        le = list;
+        while ((le = list_next(le)) != list) {
+            proc = le2proc(le, list_link);
+            if (proc->pid == last_pid) {
+                if (++ last_pid >= next_safe) {
+                    if (last_pid >= MAX_PID) {
+                        last_pid = 1;
+                    }
+                    next_safe = MAX_PID;
+                    goto repeat;
+                }
+            }
+            else if (proc->pid > last_pid && next_safe > proc->pid) {
+                next_safe = proc->pid;
+            }
+        }
+    }
+    return last_pid;
+}
+```
+这段代码通过遍历进程列表，确保分配的PID是唯一的。它使用last_pid和next_safe来跟踪和调整PID的分配，避免重复和超出范围的情况。每次分配PID时，都会检查当前PID是否已经被使用，如果没有，则返回该PID；否则，继续寻找下一个可用的PID。
+
+这样，通过这个机制，每次调用get_pid都会尽力确保分配一个未被使用的唯一pid给新fork的线程。
+
 #### 练习3：编写proc_run 函数（需要编码）
 proc_run用于将指定的进程切换到CPU上运行。它的大致执行步骤包括：
 
