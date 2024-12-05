@@ -172,6 +172,7 @@ get_pid(void) {
 // NOTE: before call switch_to, should load  base addr of "proc"'s new PDT
 void
 proc_run(struct proc_struct *proc) {
+    //cprintf("jkdasdadkkh/n/n\n\n\n");
     if (proc != current) {
         // LAB4:EXERCISE3 YOUR CODE
         /*
@@ -183,15 +184,18 @@ proc_run(struct proc_struct *proc) {
         *   switch_to():              Context switching between two processes
         */
         bool intr_flag; 
+         //cprintf("jkdasdadkkh");
         struct proc_struct *prev = current;
-        current = proc;//前一个进程和后一个进程,就两个进程
         local_intr_save(intr_flag); //屏蔽中断，并保存当前的中断状态
         {
+            current = proc;//前一个进程和后一个进程,就两个进程
             lcr3(current->cr3);//切换页表
             // 进行上下文切换，保存原线程的寄存器并恢复待调度线程的寄存器
             switch_to(&(prev->context), &(current->context));
         }
+        
         local_intr_restore(intr_flag); // 恢复中断状态
+        //cprintf("jkdasdadkkh");
        
     }
 }
@@ -293,6 +297,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto fork_out;
     }
     ret = -E_NO_MEM;
+    
     //LAB4:EXERCISE2 YOUR CODE
     /*
      * Some Useful MACROs, Functions and DEFINEs, you can use them in below implementation.
@@ -418,9 +423,12 @@ proc_init(void) {
     if (pid <= 0) {
         panic("create init_main failed.\n");
     }
+    //cprintf("asdsaf\n");
 
     initproc = find_proc(pid);
+    
     set_proc_name(initproc, "init");
+    
 
     assert(idleproc != NULL && idleproc->pid == 0);
     assert(initproc != NULL && initproc->pid == 1);
@@ -430,7 +438,9 @@ proc_init(void) {
 void
 cpu_idle(void) {
     while (1) {
+         cprintf("allasfdafsq!\n");
         if (current->need_resched) {
+           
             schedule();
         }
     }

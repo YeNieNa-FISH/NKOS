@@ -32,6 +32,7 @@ schedule(void) {
             next = idleproc;
         }
         next->runs ++;
+        //cprintf("Towqrqrqwn\n\n");
         if (next != current) {
             proc_run(next);
         }
