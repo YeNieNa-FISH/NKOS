@@ -39,11 +39,11 @@ struct pushregs {
 };
 
 struct trapframe {
-    struct pushregs gpr;
-    uintptr_t status;
-    uintptr_t epc;
-    uintptr_t tval;
-    uintptr_t cause;
+    struct pushregs gpr; // 保存通用寄存器的值
+    uintptr_t status; // 保存处理器的状态寄存器，如中断使能标志、模式（用户模式或内核模式）等 
+    uintptr_t epc; // 异常程序计数器。它保存了发生异常时处理器正在执行的指令的地址。
+    uintptr_t tval; // 用于保存异常的附加信息。例如试图访问的虚拟地址。
+    uintptr_t cause; // 导致陷阱的原因。它通常是一个编码值，表示具体的异常类型，如中断、系统调用、硬件错误等。
 };
 
 void trap(struct trapframe *tf);
