@@ -438,7 +438,7 @@ proc_init(void) {
 void
 cpu_idle(void) {
     while (1) {
-         cprintf("allasfdafsq!\n");
+        //cprintf("allasfdafsq!\n");
         if (current->need_resched) {
            
             schedule();
