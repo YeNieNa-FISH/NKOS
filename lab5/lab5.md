@@ -6,7 +6,7 @@
 请在实验报告中简要说明你的设计实现过程。
  - 如何设计实现Copy on Write机制？给出概要设计，鼓励给出详细设计。
 
- ```
+ 	```
             * (1) find src_kvaddr: the kernel virtual address of page
              * (2) find dst_kvaddr: the kernel virtual address of npage
              * (3) memory copy from src_kvaddr to dst_kvaddr, size is PGSIZE
@@ -20,7 +20,7 @@
             memcpy(kva_dst, kva_src, PGSIZE);
             //4.建立物理地址与子进程的页地址起始位置的映射关系
             ret = page_insert(to, npage, start, perm);
-```
+	```
 回答：找到父子进程的内核虚拟地址，然后拷贝父进程的到子进程中，最后为子进程当前分配这一物理页映射上对应的在子进程虚拟地址空间里的一个虚拟页。
 回答：给新对象一个指针指向内存，该页面设置为只读，在对这段内容进行写操作时候便会引发Page Fault，这时候我们便知道这段内容是需要去写的，然后重新为进程分配页面、拷贝页面内容、建立映射关系
 #### 练习3：阅读分析源代码，理解进程执行 fork/exec/wait/exit 的实现，以及系统调用的实现（不需要编码）
