@@ -103,13 +103,27 @@ alloc_proc(void) {
      *       uint32_t flags;                             // Process flag
      *       char name[PROC_NAME_LEN + 1];               // Process name
      */
-
+    proc->state = PROC_UNINIT;
+    proc->pid = -1;
+    proc->runs = 0;
+    proc->kstack = 0;
+    proc->need_resched = 0;
+    proc->parent = NULL;
+    proc->mm = NULL;
+    memset(&(proc->context),0,sizeof(struct context));
+    proc->tf = NULL;
+    proc->cr3 = boot_cr3;
+    proc->flags = 0;
+    memset(&(proc->name),0,PROC_NAME_LEN);
      //LAB5 YOUR CODE : (update LAB4 steps)
      /*
      * below fields(add in LAB5) in proc_struct need to be initialized  
      *       uint32_t wait_state;                        // waiting state
      *       struct proc_struct *cptr, *yptr, *optr;     // relations between processes
      */
+    proc->wait_state = 0;                                
+    proc->cptr = proc->optr = proc->yptr = NULL;         
+
     }
     return proc;
 }
@@ -206,7 +220,18 @@ proc_run(struct proc_struct *proc) {
         *   lcr3():                   Modify the value of CR3 register
         *   switch_to():              Context switching between two processes
         */
-
+        bool intr_flag; 
+         //cprintf("jkdasdadkkh");
+        struct proc_struct *prev = current;
+        local_intr_save(intr_flag); //屏蔽中断，并保存当前的中断状态
+        {
+            current = proc;//前一个进程和后一个进程,就两个进程
+            lcr3(current->cr3);//切换页表
+            // 进行上下文切换，保存原线程的寄存器并恢复待调度线程的寄存器
+            switch_to(&(prev->context), &(current->context));
+        }
+        
+        local_intr_restore(intr_flag); // 恢复中断状态
     }
 }
 
@@ -403,7 +428,31 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     *    update step 1: set child proc's parent to current process, make sure current process's wait_state is 0
     *    update step 5: insert proc_struct into hash_list && proc_list, set the relation links of process
     */
- 
+    
+    if ((proc = alloc_proc()) == NULL) {
+        goto fork_out;
+    }
+    proc->parent = current;//将子进程的父节点设置为当前进程
+    if (setup_kstack(proc)) {
+        goto bad_fork_cleanup_proc;
+    }
+    if(copy_mm(clone_flags, proc)){
+        goto bad_fork_cleanup_kstack;
+    }
+    copy_thread(proc, stack, tf);
+    bool intr_flag;
+    local_intr_save(intr_flag);//屏蔽中断，intr_flag置为1
+    {
+        proc->pid = get_pid();//获取当前进程PID
+        hash_proc(proc); //建立hash映射
+        list_add(&proc_list, &(proc->list_link));//加入进程链表
+        nr_process ++;//进程数加一
+    }
+    local_intr_restore(intr_flag);//恢复中断
+
+    wakeup_proc(proc);
+    ret = proc->pid;//返回当前进程的PID
+
 fork_out:
     return ret;
 
@@ -603,7 +652,12 @@ load_icode(unsigned char *binary, size_t size) {
      *          tf->status should be appropriate for user program (the value of sstatus)
      *          hint: check meaning of SPP, SPIE in SSTATUS, use them by SSTATUS_SPP, SSTATUS_SPIE(defined in risv.h)
      */
-
+    // Set the user stack top
+    tf->gpr.sp = USTACKTOP;
+    // Set the entry point of the user program
+    tf->epc = elf->e_entry;
+    // Set the status register for the user program
+    tf->status = (read_csr(sstatus) & ~SSTATUS_SPP) | SSTATUS_SPIE;
 
     ret = 0;
 out:
