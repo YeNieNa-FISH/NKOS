@@ -433,6 +433,7 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
         goto fork_out;
     }
     proc->parent = current;//将子进程的父节点设置为当前进程
+    assert(current->wait_state == 0); //确保进程在等待
     if (setup_kstack(proc)) {
         goto bad_fork_cleanup_proc;
     }
@@ -445,8 +446,8 @@ do_fork(uint32_t clone_flags, uintptr_t stack, struct trapframe *tf) {
     {
         proc->pid = get_pid();//获取当前进程PID
         hash_proc(proc); //建立hash映射
-        list_add(&proc_list, &(proc->list_link));//加入进程链表
-        nr_process ++;//进程数加一
+        
+        set_links(proc); //设置进程链接
     }
     local_intr_restore(intr_flag);//恢复中断
 
@@ -658,6 +659,8 @@ load_icode(unsigned char *binary, size_t size) {
     tf->epc = elf->e_entry;
     // Set the status register for the user program
     tf->status = (read_csr(sstatus) & ~SSTATUS_SPP) | SSTATUS_SPIE;
+    //tf->status = (read_csr(sstatus) & ~SSTATUS_SPP & ~SSTATUS_SPIE);
+  // 根据需要设置 tf->status 的值，清除 SSTATUS_SPP 和 SSTATUS_SPIE 位
 
     ret = 0;
 out:
